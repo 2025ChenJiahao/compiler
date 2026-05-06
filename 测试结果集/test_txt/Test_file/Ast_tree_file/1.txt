@@ -1,0 +1,91 @@
+{
+  "type": "ModelProto",
+  "line": 1,
+  "graph": {
+    "type": "Graph",
+    "line": 8,
+    "name": "test-model",
+    "nodes": [
+      {
+        "type": "Node",
+        "line": 11,
+        "opType": "Pad",
+        "name": "test-node",
+        "inputs": [
+          "X",
+          "pads",
+          "value"
+        ],
+        "outputs": [
+          "Y"
+        ],
+        "attributes": [
+          {
+            "type": null,
+            "line": 0,
+            "name": "mode",
+            "value": "33"
+          }
+        ]
+      }
+    ],
+    "inputs": [
+      {
+        "type": null,
+        "line": 0,
+        "name": "X",
+        "elemType": "int",
+        "shape": [
+          3,
+          2
+        ]
+      },
+      {
+        "type": null,
+        "line": 0,
+        "name": "pads",
+        "elemType": "int",
+        "shape": [
+          1,
+          4
+        ]
+      },
+      {
+        "type": null,
+        "line": 0,
+        "name": "value",
+        "elemType": "int",
+        "shape": [
+          1
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "type": null,
+        "line": 0,
+        "name": "Y",
+        "elemType": "int",
+        "shape": [
+          3,
+          4
+        ]
+      }
+    ],
+    "initializers": [
+      {
+        "type": "TensorInitializer",
+        "line": 0,
+        "name": "conv.bias",
+        "dataType": "int",
+        "dims": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "rawData": "000000000000b"
+      }
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "type": "ModelProto",
+  "line": 1,
+  "graph": {
+    "type": "Graph",
+    "line": 8,
+    "name": "NodeWithStringAttrGraph",
+    "nodes": [
+      {
+        "type": "Node",
+        "line": 11,
+        "opType": "CustomOp",
+        "name": "CustomNode",
+        "inputs": [
+          "input1"
+        ],
+        "outputs": [
+          "output1"
+        ],
+        "attributes": [
+          {
+            "type": null,
+            "line": 0,
+            "name": "customAttr",
+            "value": "SomeStringValue"
+          }
+        ]
+      }
+    ],
+    "inputs": [
+      {
+        "type": null,
+        "line": 0,
+        "name": "input1",
+        "elemType": "float",
+        "shape": [
+          1
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "type": null,
+        "line": 0,
+        "name": "output1",
+        "elemType": "float",
+        "shape": [
+          1
+        ]
+      }
+    ],
+    "initializers": []
+  }
+}

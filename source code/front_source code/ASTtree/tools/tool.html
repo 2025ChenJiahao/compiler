@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AST Visualizer | Optimized Renderer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Fira+Code:wght@400;500&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .code-font { font-family: 'Fira Code', monospace; }
+        #canvas { 
+            cursor: grab; 
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px); 
+            background-size: 20px 20px; 
+            overflow: auto; 
+            position: relative;
+        }
+        #canvas:active { cursor: grabbing; }
+        #graph-wrapper { 
+            transition: transform 0.1s ease-out; 
+            transform-origin: center center; 
+            width: fit-content; 
+            height: fit-content; 
+            padding: 100px;
+        }
+        /* 核心：取消宽度限制，允许内容支撑大小 */
+        .mermaid svg { max-width: none !important; height: auto !important; }
+        
+        .loading-spinner {
+            border: 2px solid #e2e8f0;
+            border-top: 2px solid #6366f1;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <header class="h-14 border-b bg-white flex items-center justify-between px-8 shrink-0 z-50 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center text-white shadow-lg">
+                <i data-lucide="code" class="w-5 h-5"></i>
+            </div>
+            <h1 class="text-md font-bold text-slate-900">AST <span class="text-indigo-600 font-medium">Visualizer Pro</span></h1>
+        </div>
+        <div id="status-badge" class="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-[11px] font-bold border border-slate-200">
+            <span id="status-dot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+            <span id="status-text">Waiting</span>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden">
+        <section class="w-[400px] border-r bg-white flex flex-col shadow-xl z-10">
+            <div class="px-6 py-4 border-b bg-slate-50 flex items-center justify-between">
+                <span class="text-[10px] font-black text-slate-400 uppercase">JSON AST Input</span>
+                <div class="flex gap-2">
+                    <button onclick="formatJsonInput()" class="text-[10px] text-indigo-600 font-bold hover:text-indigo-800">FORMAT</button>
+                    <button onclick="document.getElementById('inputAst').value=''; render();" class="text-[10px] text-indigo-600 font-bold hover:text-indigo-800">CLEAR</button>
+                </div>
+            </div>
+            <textarea id="inputAst" 
+                class="flex-1 p-6 code-font text-[13px] leading-relaxed text-slate-600 focus:outline-none resize-none bg-slate-50/20"
+                placeholder='粘贴 JSON...'
+                oninput="handleInput()"></textarea>
+        </section>
+
+        <section class="flex-1 bg-slate-100 relative overflow-hidden">
+            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 p-2 bg-white/90 backdrop-blur border border-slate-200 rounded-2xl shadow-2xl z-20">
+                <button onclick="adjustZoom(-0.2)" class="p-2 hover:bg-slate-200 rounded-lg transition-colors"><i data-lucide="minus" class="w-4 h-4 text-slate-600"></i></button>
+                <div class="flex flex-col items-center min-w-[60px]">
+                    <span class="text-[10px] text-slate-400">Zoom</span>
+                    <span class="text-xs font-bold text-indigo-600"><span id="zoom-level">100</span>%</span>
+                </div>
+                <button onclick="adjustZoom(0.2)" class="p-2 hover:bg-slate-200 rounded-lg transition-colors"><i data-lucide="plus" class="w-4 h-4 text-slate-600"></i></button>
+                <div class="w-px h-6 bg-slate-200 mx-1"></div>
+                <button onclick="resetZoom()" class="p-2 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors"><i data-lucide="refresh-cw" class="w-5 h-5"></i></button>
+                <div class="w-px h-6 bg-slate-200 mx-1"></div>
+                <button onclick="centerGraph()" class="p-2 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors"><i data-lucide="align-center" class="w-5 h-5"></i></button>
+            </div>
+
+            <div id="canvas" class="w-full h-full">
+                <div id="graph-wrapper">
+                    <div id="graph-output" class="mermaid text-center"></div>
+                </div>
+                <div id="loading-indicator" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 hidden items-center gap-2 text-slate-500 text-xs bg-white p-4 rounded-lg shadow-lg border">
+                    <div class="loading-spinner"></div>
+                    <span>渲染中...</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: false, 
+            theme: 'base',
+            htmlLabels: true,
+            flowchart: {
+                curve: 'basis',
+                nodeSpacing: 45,
+                rankSpacing: 50,
+                useMaxWidth: false, // 禁用最大宽度限制
+                htmlLabels: true
+            },
+            themeVariables: {
+                lineColor: '#6366f1',
+                primaryColor: '#ffffff',
+                primaryBorderColor: '#6366f1',
+                primaryTextColor: '#1e293b',
+                secondaryColor: '#f8fafc',
+                tertiaryColor: '#f1f5f9'
+                // 移除了硬编码的 nodeWidth/Height 以实现自适应
+            }
+        });
+
+        lucide.createIcons();
+
+        let debounceTimer;
+        let scale = 1, translateX = 0, translateY = 0, isDragging = false;
+        let startX = 0, startY = 0;
+        let nodeCounter = 0;
+        let lines = [];
+        const canvas = document.getElementById('canvas');
+        const wrapper = document.getElementById('graph-wrapper');
+        const loadingIndicator = document.getElementById('loading-indicator');
+
+        function formatJsonInput() {
+            const input = document.getElementById('inputAst').value.trim();
+            if (!input) return;
+            try {
+                const parsed = JSON.parse(input);
+                document.getElementById('inputAst').value = JSON.stringify(parsed, null, 2);
+            } catch (e) {
+                updateStatus('Format Error', 'bg-amber-500');
+                setTimeout(() => updateStatus('Waiting', 'bg-slate-400'), 2000);
+            }
+        }
+
+        function handleInput() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(render, 400);
+        }
+
+        async function render() {
+            const input = document.getElementById('inputAst').value.trim();
+            const outputContainer = document.getElementById('graph-output');
+            nodeCounter = 0;
+            lines = ["graph TD"];
+
+            if (!input) {
+                outputContainer.innerHTML = "";
+                updateStatus('Waiting', 'bg-slate-400');
+                return;
+            }
+
+            loadingIndicator.style.display = 'flex';
+            updateStatus('Rendering', 'bg-blue-500');
+
+            try {
+                const rootNode = JSON.parse(input);
+                
+                // 开启递归解析，初始父节点为 null
+                traverseFullTree(rootNode, null, "Root");
+
+                const mermaidCode = lines.join("\n");
+                outputContainer.removeAttribute("data-processed");
+                outputContainer.innerHTML = mermaidCode;
+                
+                await mermaid.run({ nodes: [outputContainer] });
+                
+                updateStatus('Success', 'bg-green-500');
+            } catch (error) {
+                console.error(error);
+                outputContainer.innerHTML = `<div class="p-8 text-red-500 font-bold">错误: ${error.message}</div>`;
+                updateStatus('Error', 'bg-red-500');
+            } finally {
+                loadingIndicator.style.display = 'none';
+                centerGraph();
+            }
+        }
+
+        /**
+         * 核心递归函数：将 JSON 转换为 Mermaid DSL
+         */
+        function traverseFullTree(node, parentId, nodeName = "Node") {
+            if (node === undefined || node === null) return;
+
+            // 1. 处理数组：直接遍历元素，不再创建中间节点 (跳过 nodes, inputs, outputs 等容器)
+            if (Array.isArray(node)) {
+                node.forEach((item, i) => {
+                    traverseFullTree(item, parentId, `${nodeName}[${i}]`);
+                });
+                return;
+            }
+
+            // 2. 处理基础数据类型
+            if (typeof node !== "object") {
+                const leafId = getNextNodeId('leaf');
+                lines.push(`    ${leafId}(["${escapeMermaidText(String(node))}"])`);
+                if (parentId) lines.push(`    ${parentId} --> ${leafId}`);
+                return;
+            }
+
+            // 3. 处理对象节点
+            let title = node.type || node.name || nodeName;
+            let attributes = [];
+            let childrenEntries = [];
+
+            // 区分：哪些是属性（展示在框内），哪些是子对象（连线）
+            for (const [key, value] of Object.entries(node)) {
+                if (['type', 'name'].includes(key)) continue;
+
+                if (value !== null && typeof value === "object") {
+                    childrenEntries.push({ key, value });
+                } else {
+                    attributes.push(`${key}: ${value}`);
+                }
+            }
+
+            // 构造节点内容（HTML 标签使 Mermaid 节点自适应内容长度）
+            let label = `<div style="padding:4px"><b>${escapeMermaidText(title)}</b>`;
+            if (attributes.length > 0) {
+                label += `<hr style="border-top:1px solid #ddd;margin:4px 0"/><div style="font-size:11px;color:#64748b;text-align:left">${attributes.map(escapeMermaidText).join('<br/>')}</div>`;
+            }
+            label += `</div>`;
+
+            const nodeId = getNextNodeId('node');
+            lines.push(`    ${nodeId}["${label}"]`); 
+            if (parentId) lines.push(`    ${parentId} --> ${nodeId}`);
+
+            // 4. 递归处理子节点
+            childrenEntries.forEach(entry => {
+                // 如果是常见的容器关键字，直接透传当前 nodeId，不再生成中间层
+                const containerKeys = ['nodes', 'inputs', 'outputs', 'initializers', 'graph', 'children'];
+                
+                if (containerKeys.includes(entry.key)) {
+                    traverseFullTree(entry.value, nodeId, entry.key);
+                } else {
+                    // 对于特定的属性级对象，保留一个分类标签（圆角矩形）
+                    const groupNodeId = getNextNodeId('group');
+                    lines.push(`    ${groupNodeId}(["<b>${escapeMermaidText(entry.key)}</b>"])`);
+                    lines.push(`    ${nodeId} --> ${groupNodeId}`);
+                    traverseFullTree(entry.value, groupNodeId, entry.key);
+                }
+            });
+        }
+
+        function getNextNodeId(prefix) {
+            return `${prefix}_${++nodeCounter}`;
+        }
+
+        function escapeMermaidText(t) {
+            if (t === undefined || t === null) return "null";
+            return String(t)
+                .replace(/"/g, "&quot;")
+                .replace(/</g, "&#60;")
+                .replace(/>/g, "&#62;")
+                .replace(/\[/g, "&#91;")
+                .replace(/\]/g, "&#93;");
+        }
+
+        function updateStatus(text, dotClass) {
+            document.getElementById('status-dot').className = `w-2 h-2 rounded-full ${dotClass}`;
+            document.getElementById('status-text').innerText = text;
+        }
+
+        function updateTransform() {
+            wrapper.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            document.getElementById('zoom-level').innerText = Math.round(scale * 100);
+        }
+
+        function adjustZoom(delta) {
+            scale = Math.max(0.1, Math.min(5, scale + delta));
+            updateTransform();
+        }
+
+        function resetZoom() {
+            scale = 1; translateX = 0; translateY = 0;
+            updateTransform();
+        }
+
+        function centerGraph() {
+            translateX = 0; translateY = 0;
+            updateTransform();
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.target.closest('button')) return;
+            isDragging = true;
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+            canvas.style.cursor = 'grabbing';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            updateTransform();
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            canvas.style.cursor = 'grab';
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            adjustZoom(e.deltaY > 0 ? -0.05 : 0.05);
+        }, { passive: false });
+
+        window.addEventListener('load', () => {
+            updateStatus('Waiting', 'bg-slate-400');
+        });
+    </script>
+</body>
+</html>

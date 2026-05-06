@@ -1,0 +1,62 @@
+{
+  "type": "ModelProto",
+  "line": 1,
+  "graph": {
+    "type": "Graph",
+    "line": 8,
+    "name": "GraphWithInitializer",
+    "nodes": [
+      {
+        "type": "Node",
+        "line": 11,
+        "opType": "MatMul",
+        "name": "MatMulNode",
+        "inputs": [
+          "input1",
+          "initializer1"
+        ],
+        "outputs": [
+          "output1"
+        ],
+        "attributes": []
+      }
+    ],
+    "inputs": [
+      {
+        "type": null,
+        "line": 0,
+        "name": "input1",
+        "elemType": "float",
+        "shape": [
+          1,
+          2
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "type": null,
+        "line": 0,
+        "name": "output1",
+        "elemType": "float",
+        "shape": [
+          1,
+          1
+        ]
+      }
+    ],
+    "initializers": [
+      {
+        "type": "TensorInitializer",
+        "line": 0,
+        "name": "initializer1",
+        "dataType": "float",
+        "dims": [
+          2,
+          1
+        ],
+        "rawData": "01020304b"
+      }
+    ]
+  }
+}

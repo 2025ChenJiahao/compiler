@@ -1,0 +1,67 @@
+{
+  "type": "ModelProto",
+  "line": 1,
+  "graph": {
+    "type": "Graph",
+    "line": 8,
+    "name": "MultiIOGraph",
+    "nodes": [
+      {
+        "type": "Node",
+        "line": 11,
+        "opType": "Add",
+        "name": "AddNode",
+        "inputs": [
+          "input1",
+          "input2"
+        ],
+        "outputs": [
+          "output1",
+          "output2"
+        ],
+        "attributes": []
+      }
+    ],
+    "inputs": [
+      {
+        "type": null,
+        "line": 0,
+        "name": "input1",
+        "elemType": "float",
+        "shape": [
+          1
+        ]
+      },
+      {
+        "type": null,
+        "line": 0,
+        "name": "input2",
+        "elemType": "float",
+        "shape": [
+          1
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "type": null,
+        "line": 0,
+        "name": "output1",
+        "elemType": "float",
+        "shape": [
+          1
+        ]
+      },
+      {
+        "type": null,
+        "line": 0,
+        "name": "output2",
+        "elemType": "float",
+        "shape": [
+          1
+        ]
+      }
+    ],
+    "initializers": []
+  }
+}
